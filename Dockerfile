@@ -24,10 +24,24 @@ RUN npm install --legacy-peer-deps
 # Copy source code
 COPY . .
 
-# Set dummy environment variables for build
+# Set dummy environment variables for build (will be overridden at runtime)
 ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 ENV NEXTAUTH_SECRET="dummy-secret-for-build"
 ENV NEXTAUTH_URL="http://localhost:3000"
+ENV LINE_CHANNEL_ACCESS_TOKEN="dummy-token"
+ENV LINE_CHANNEL_SECRET="dummy-secret"
+ENV SLIP_APIKEY="dummy-key"
+ENV CREDITMODE="true"
+ENV EXPECTED_RECEIVER_NAME_TH="บุญญฤทธิ์ ส"
+ENV EXPECTED_RECEIVER_NAME_EN="BOONYARIT S"
+ENV EXPECTED_ACCOUNT_NUMBER="6639546442"
+ENV EXPECTED_BANK_ID="006"
+ENV R2_ACCOUNT_ID="dummy-r2-account"
+ENV R2_ACCESS_KEY_ID="dummy-r2-key"
+ENV R2_SECRET_ACCESS_KEY="dummy-r2-secret"
+ENV R2_BUCKET_NAME="line-bot-slips"
+ENV R2_PUBLIC_URL="https://dummy.r2.dev"
+ENV SET_ADMIN_GROUP_TOKEN="dummy-admin-token"
 
 # Generate Drizzle ORM types
 RUN npm run db:generate
