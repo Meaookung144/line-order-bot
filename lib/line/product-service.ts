@@ -48,7 +48,7 @@ export async function getAvailableStockCount(productId: number): Promise<number>
   return items.length;
 }
 
-export async function formatProductMessage(itemData: any, template: string | null): string {
+export async function formatProductMessage(itemData: any, template: string | null): Promise<string> {
   if (!template) {
     // Default template if none specified
     let message = "🎉 คุณได้รับสินค้าแล้ว!\n\n";
