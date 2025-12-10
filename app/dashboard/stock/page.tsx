@@ -14,6 +14,7 @@ interface Product {
   retailMultiplier: number;
   messageTemplate: string | null;
   stock: number;
+  active: boolean;
 }
 
 interface StockItem {
