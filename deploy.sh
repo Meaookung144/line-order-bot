@@ -38,11 +38,40 @@ if [ ! -f .env ]; then
 fi
 
 echo "📦 Building Docker image..."
-docker compose build
+echo "   (This may take 5-10 minutes on first build)"
+echo ""
+
+# Try building with the regular Dockerfile first
+if docker compose build; then
+    echo "✅ Build successful!"
+else
+    echo "❌ Build failed with Alpine-based image"
+    echo "🔄 Trying Debian-based image instead..."
+    echo ""
+
+    if docker compose -f docker-compose.debian.yml build; then
+        echo "✅ Build successful with Debian image!"
+        echo "   Using docker-compose.debian.yml"
+        COMPOSE_FILE="docker-compose.debian.yml"
+    else
+        echo "❌ Build failed with both images"
+        echo ""
+        echo "📖 Please check BUILD_TROUBLESHOOTING.md for solutions"
+        echo "   Common fixes:"
+        echo "   1. docker system prune -af"
+        echo "   2. docker compose build --no-cache"
+        echo "   3. Check .env file exists and is valid"
+        exit 1
+    fi
+fi
 
 echo ""
 echo "🚀 Starting application..."
-docker compose up -d
+if [ -n "$COMPOSE_FILE" ]; then
+    docker compose -f "$COMPOSE_FILE" up -d
+else
+    docker compose up -d
+fi
 
 echo ""
 echo "⏳ Waiting for application to start..."
