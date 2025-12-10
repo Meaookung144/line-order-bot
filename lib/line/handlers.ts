@@ -1,4 +1,4 @@
-import { MessageEvent, TextMessage, ImageMessage, Message } from "@line/bot-sdk";
+import { MessageEvent, TextMessage, Message } from "@line/bot-sdk";
 import { lineClient } from "./client";
 import { getOrCreateUser, getUserBalance } from "./user-service";
 import { handleBalanceCommand } from "./commands/balance";
@@ -213,7 +213,7 @@ async function handleTextMessage(
 
 async function handleImageMessage(
   replyToken: string,
-  message: ImageMessage,
+  message: any,
   user: any
 ) {
   await handleSlipVerification(replyToken, message, user);
