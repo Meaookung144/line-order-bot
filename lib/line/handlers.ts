@@ -1,4 +1,4 @@
-import { MessageEvent, TextMessage, Message } from "@line/bot-sdk";
+import { MessageEvent, TextMessage } from "@line/bot-sdk";
 import { lineClient } from "./client";
 import { getOrCreateUser, getUserBalance } from "./user-service";
 import { handleBalanceCommand } from "./commands/balance";
