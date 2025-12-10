@@ -23,6 +23,11 @@ RUN npm install --legacy-peer-deps
 # Copy source code
 COPY . .
 
+# Set dummy environment variables for build
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+ENV NEXTAUTH_SECRET="dummy-secret-for-build"
+ENV NEXTAUTH_URL="http://localhost:3000"
+
 # Generate Drizzle ORM types
 RUN npm run db:generate
 
