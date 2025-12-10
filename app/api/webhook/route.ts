@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { WebhookEvent, validateSignature } from "@line/bot-sdk";
 import { handleMessage } from "@/lib/line/handlers";
+import { handlePostback } from "@/lib/line/postback-handlers";
 
 export async function POST(req: NextRequest) {
   try {
@@ -52,6 +53,8 @@ export async function POST(req: NextRequest) {
         console.log("📦 Event object:", JSON.stringify(event, null, 2));
         if (event.type === "message") {
           await handleMessage(event);
+        } else if (event.type === "postback") {
+          await handlePostback(event);
         }
         // Add other event types as needed
       })

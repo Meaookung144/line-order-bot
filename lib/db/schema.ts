@@ -163,6 +163,15 @@ export const creditTiers = pgTable("credit_tiers", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Settings table (for storing app-wide settings)
+export const settings = pgTable("settings", {
+  id: serial("id").primaryKey(),
+  key: varchar("key", { length: 255 }).notNull().unique(),
+  value: text("value"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // TypeScript types
 export type Admin = typeof admins.$inferSelect;
 export type NewAdmin = typeof admins.$inferInsert;
@@ -190,3 +199,6 @@ export type NewProductShortCode = typeof productShortCodes.$inferInsert;
 
 export type StockItem = typeof stockItems.$inferSelect;
 export type NewStockItem = typeof stockItems.$inferInsert;
+
+export type Setting = typeof settings.$inferSelect;
+export type NewSetting = typeof settings.$inferInsert;

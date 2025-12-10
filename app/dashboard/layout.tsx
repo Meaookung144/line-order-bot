@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import Link from "next/link";
-import { LogOut, Users, History, Receipt, Package, Shield, Boxes } from "lucide-react";
+import { LogOut, Users, History, Receipt, Package, Shield, Boxes, Wallet } from "lucide-react";
 
 export default async function DashboardLayout({
   children,
@@ -49,7 +49,7 @@ export default async function DashboardLayout({
             <div className="bg-white rounded-lg shadow-md p-4 sticky top-8">
               <nav className="space-y-2">
                 <Link
-                  href="/dashboard"
+                  href="/dashboard/users"
                   className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
                 >
                   <Users className="w-5 h-5" />
@@ -68,6 +68,13 @@ export default async function DashboardLayout({
                 >
                   <Receipt className="w-5 h-5" />
                   สลิปรอตรวจสอบ
+                </Link>
+                <Link
+                  href="/dashboard/topups"
+                  className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
+                >
+                  <Wallet className="w-5 h-5" />
+                  ประวัติเติมเงิน
                 </Link>
                 <Link
                   href="/dashboard/products"

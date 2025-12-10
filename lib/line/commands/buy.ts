@@ -66,18 +66,21 @@ export async function handleBuyCommand(
   const productPrice = parseFloat(product.price);
   const newBalance = currentBalance - productPrice;
 
-  // Check if balance would go below minimum
-  if (newBalance < minimumCredit) {
+  // Check if balance would go below allowed credit limit
+  // minimumCredit represents how much debt is allowed (e.g., 30 means can go to -30)
+  const minAllowedBalance = -minimumCredit;
+  const availableCredit = currentBalance + minimumCredit;
+
+  if (newBalance < minAllowedBalance) {
     await lineClient.replyMessage(replyToken, {
       type: "text",
       text: `❌ เครดิตไม่เพียงพอ
 
 ราคาสินค้า: ${formatCurrency(productPrice)}
-เครดิตปัจจุบัน: ${formatCurrency(currentBalance)}
-วงเงินขั้นต่ำ: ${formatCurrency(minimumCredit)}
-เครดิตที่ใช้ได้: ${formatCurrency(currentBalance - minimumCredit)}
-กรุณาเติมเงินก่อนทำรายการ 
-ขอเพิ่มวงเงินเครดิสพิมพ์ '/สก' `,
+ยอดเงินปัจจุบัน: ${formatCurrency(currentBalance)}
+วงเงินเครดิต: ${formatCurrency(minimumCredit)}
+
+ขอเพิ่มวงเงินเครดิตพิมพ์ '/สก' `,
     });
     return;
   }
@@ -125,18 +128,18 @@ export async function handleBuyCommand(
     });
 
     // Update total spend and check tiers
-    const { newTotalSpend, newMinimumCredit } =
+    const { newTotalSpend, newMinimumCredit, creditIncreased } =
       await updateTotalSpendAndCheckTiers(user.id, productPrice);
 
     let tierMessage = "";
-    if (newMinimumCredit < minimumCredit) {
-      tierMessage = `\n\n🎉 คุณได้รับวงเงินใหม่: ${formatCurrency(newMinimumCredit)}`;
+    if (creditIncreased) {
+      tierMessage = `\n\n🎉 ยินดีด้วย! ยอดซื้อสะสมของคุณถึง ${formatCurrency(newTotalSpend)} แล้ว\n💳 วงเงินเครดิตเพิ่มเป็น: ${formatCurrency(newMinimumCredit)}`;
     }
 
     // Send purchase confirmation
     const confirmMessage = `✅ ซื้อสินค้าสำเร็จ!
 ราคา: ${formatCurrency(productPrice)}
-คงเหลือ: ${formatCurrency(newBalance)}`;
+คงเหลือ: ${formatCurrency(newBalance)}${tierMessage}`;
 
     await lineClient.replyMessage(replyToken, {
       type: "text",

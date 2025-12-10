@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { users, creditTiers } from "../db/schema";
-import { eq, sql } from "drizzle-orm";
+import { users } from "../db/schema";
+import { eq } from "drizzle-orm";
 
 export async function getOrCreateUser(lineUserId: string, displayName: string) {
   const [existingUser] = await db
@@ -80,25 +80,14 @@ export async function updateTotalSpendAndCheckTiers(userId: number, amount: numb
   }
 
   const newTotalSpend = parseFloat(user.totalSpend) + amount;
-
-  // Check if user qualifies for a new credit tier
-  const tiers = await db
-    .select()
-    .from(creditTiers)
-    .where(eq(creditTiers.active, true))
-    .orderBy(sql`${creditTiers.minSpend} DESC`);
-
   let newMinimumCredit = parseFloat(user.minimumCredit);
+  const currentMinimumCredit = newMinimumCredit;
 
-  for (const tier of tiers) {
-    const minSpend = parseFloat(tier.minSpend);
-    if (newTotalSpend >= minSpend) {
-      const tierCredit = parseFloat(tier.creditBonus);
-      if (tierCredit < newMinimumCredit) {
-        newMinimumCredit = tierCredit;
-      }
-      break;
-    }
+  // Auto-increase credit limit based on spending milestones
+  if (newTotalSpend >= 200 && newMinimumCredit < 200) {
+    newMinimumCredit = 200;
+  } else if (newTotalSpend >= 100 && newMinimumCredit < 50) {
+    newMinimumCredit = 50;
   }
 
   await db
@@ -110,5 +99,9 @@ export async function updateTotalSpendAndCheckTiers(userId: number, amount: numb
     })
     .where(eq(users.id, userId));
 
-  return { newTotalSpend, newMinimumCredit };
+  return {
+    newTotalSpend,
+    newMinimumCredit,
+    creditIncreased: newMinimumCredit > currentMinimumCredit
+  };
 }

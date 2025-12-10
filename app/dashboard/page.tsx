@@ -87,7 +87,7 @@ export default async function DashboardPage() {
                     เครดิตคงเหลือ
                   </th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">
-                    วงเงินขั้นต่ำ
+                    วงเงินเครดิต
                   </th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">
                     เครดิตที่ใช้ได้
@@ -104,7 +104,7 @@ export default async function DashboardPage() {
                 {allUsers.map((user) => {
                   const balance = parseFloat(user.creditBalance);
                   const minCredit = parseFloat(user.minimumCredit);
-                  const available = balance - minCredit;
+                  const available = balance + minCredit;
 
                   return (
                     <tr key={user.id} className="border-b hover:bg-gray-50">
@@ -121,7 +121,7 @@ export default async function DashboardPage() {
                       <td className="text-right py-3 px-4 font-medium">
                         {formatCurrency(balance)}
                       </td>
-                      <td className="text-right py-3 px-4 text-red-600">
+                      <td className="text-right py-3 px-4 text-blue-600">
                         {formatCurrency(minCredit)}
                       </td>
                       <td

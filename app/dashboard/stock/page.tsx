@@ -50,6 +50,8 @@ export default function StockManagementPage() {
   const [autoDuplicate, setAutoDuplicate] = useState(false);
   const [newShortCode, setNewShortCode] = useState("");
   const [quickPaste, setQuickPaste] = useState("");
+  const [bulkInput, setBulkInput] = useState("");
+  const [selectedScreens, setSelectedScreens] = useState<string[]>([]);
 
   useEffect(() => {
     loadProducts();
@@ -130,6 +132,95 @@ export default function StockManagementPage() {
     }
   };
 
+  const handleBulkAddStockItems = async () => {
+    if (!selectedProduct) {
+      toast.error("กรุณาเลือกสินค้าก่อน");
+      return;
+    }
+
+    if (!bulkInput.trim()) {
+      toast.error("กรุณากรอกข้อมูล");
+      return;
+    }
+
+    const lines = bulkInput.trim().split("\n").filter((line) => line.trim());
+
+    if (lines.length === 0) {
+      toast.error("ไม่พบข้อมูลที่ถูกต้อง");
+      return;
+    }
+
+    try {
+      let totalCreated = 0;
+
+      for (const line of lines) {
+        const parts = line.trim().split(":");
+
+        if (parts.length < 2) {
+          toast.error(`รูปแบบไม่ถูกต้อง: ${line}`);
+          continue;
+        }
+
+        const itemData = {
+          user: parts[0] || "",
+          pass: parts[1] || "",
+          screen: parts[2] || "",
+          pin: parts[3] || "",
+        };
+
+        // If screens are selected, create multiple items for each screen
+        if (selectedScreens.length > 0) {
+          for (const screen of selectedScreens) {
+            const res = await fetch(`/api/products/${selectedProduct.id}/stock-items`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                itemData: { ...itemData, screen },
+                autoDuplicate: false,
+              }),
+            });
+
+            if (res.ok) {
+              const result = await res.json();
+              totalCreated += result.created;
+            }
+          }
+        } else {
+          // No screens selected, just add the item as is
+          const res = await fetch(`/api/products/${selectedProduct.id}/stock-items`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              itemData,
+              autoDuplicate,
+            }),
+          });
+
+          if (res.ok) {
+            const result = await res.json();
+            totalCreated += result.created;
+          }
+        }
+      }
+
+      toast.success(`เพิ่มสต็อกสำเร็จ ${totalCreated} รายการจากทั้งหมด ${lines.length} บรรทัด`);
+      setBulkInput("");
+      setSelectedScreens([]);
+      await loadStockItems();
+      await loadProducts();
+    } catch (error) {
+      toast.error("ไม่สามารถเพิ่มสต็อกได้");
+    }
+  };
+
+  const toggleScreen = (screen: string) => {
+    setSelectedScreens((prev) =>
+      prev.includes(screen)
+        ? prev.filter((s) => s !== screen)
+        : [...prev, screen]
+    );
+  };
+
   const handleDeleteStockItem = async (itemId: number) => {
     if (!confirm("คุณต้องการลบรายการสต็อกนี้ใช่หรือไม่?")) {
       return;
@@ -202,6 +293,8 @@ export default function StockManagementPage() {
       pin: "",
     });
     setAutoDuplicate(false);
+    setBulkInput("");
+    setSelectedScreens([]);
   };
 
   const handleQuickPaste = () => {
@@ -356,6 +449,77 @@ export default function StockManagementPage() {
             </CardHeader>
             {showAddForm && (
               <CardContent>
+                {/* Bulk Add Section */}
+                <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    📦 เพิ่มหลายบัญชีพร้อมกัน (1 บรรทัด = 1 บัญชี)
+                  </label>
+                  <textarea
+                    value={bulkInput}
+                    onChange={(e) => setBulkInput(e.target.value)}
+                    placeholder="user1@email.com:password1&#10;user2@email.com:password2&#10;user3:pass3:screen3:pin3"
+                    rows={5}
+                    className="w-full px-3 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm"
+                  />
+                  <p className="text-xs text-gray-600 mt-2">
+                    💡 รูปแบบ: user:pass หรือ user:pass:screen:pin (1 บัญชีต่อ 1 บรรทัด)
+                  </p>
+
+                  {/* Screen Selection */}
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      🎮 เลือก Screen ที่ต้องการรัน (เลือกได้หลายตัว)
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {[1, 2, 3, 4, 5].map((screen) => (
+                        <label
+                          key={screen}
+                          className={`flex items-center gap-2 px-4 py-2 border-2 rounded-lg cursor-pointer transition-all ${
+                            selectedScreens.includes(screen.toString())
+                              ? "border-purple-500 bg-purple-100"
+                              : "border-gray-300 bg-white hover:border-purple-300"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedScreens.includes(screen.toString())}
+                            onChange={() => toggleScreen(screen.toString())}
+                            className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                          />
+                          <span className="font-medium">Screen {screen}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-600 mt-2">
+                      💡 ถ้าเลือก screen จะสร้างบัญชีแต่ละตัวให้กับทุก screen ที่เลือก
+                      {selectedScreens.length > 0 && (
+                        <span className="text-purple-600 font-semibold">
+                          {" "}
+                          (เลือก {selectedScreens.length} screen)
+                        </span>
+                      )}
+                    </p>
+                  </div>
+
+                  <Button
+                    type="button"
+                    onClick={handleBulkAddStockItems}
+                    className="mt-4 bg-purple-600 hover:bg-purple-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    เพิ่มทั้งหมด
+                  </Button>
+                </div>
+
+                <div className="relative mb-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white text-gray-500">หรือเพิ่มทีละรายการ</span>
+                  </div>
+                </div>
+
                 <form onSubmit={handleAddStockItem} className="space-y-4">
                   {/* Quick Paste */}
                   <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">

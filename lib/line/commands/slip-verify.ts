@@ -75,34 +75,127 @@ export async function handleSlipVerification(
       console.error("❌ Slip verification failed");
       console.error("Full response:", JSON.stringify(slipData, null, 2));
 
-      // Map error codes to Thai messages
-      let errorMessage = "";
-      switch (slipData.code) {
-        case "200401":
-          errorMessage = "❌ บัญชีผู้รับไม่ถูกต้อง";
-          break;
-        case "200402":
-          errorMessage = "❌ ยอดโอนเงินไม่ตรงเงื่อนไข";
-          break;
-        case "200403":
-          errorMessage = "❌ วันที่โอนไม่ตรงเงื่อนไข";
-          break;
-        case "200404":
-          errorMessage = "❌ ไม่พบข้อมูลสลิปในระบบธนาคาร";
-          break;
-        case "200500":
-          errorMessage = "❌ สลิปเสีย/สลิปปลอม";
-          break;
-        case "200501":
-          errorMessage = "❌ สลิปซ้ำ - สลิปนี้เคยถูกใช้งานแล้ว";
-          break;
-        default:
-          errorMessage = `❌ สลิปไม่ถูกต้องหรือไม่สามารถตรวจสอบได้\n\nรายละเอียด: ${slipData.message || 'Unknown error'}`;
+      // Upload slip to R2 even if failed for admin review
+      let r2Url = "";
+      try {
+        r2Url = await uploadSlipImage(imageBuffer, `failed_${Date.now()}`);
+      } catch (error) {
+        console.error("Error uploading to R2:", error);
       }
 
+      // Map error codes to Thai messages
+      let errorTitle = "";
+      let errorDetail = "";
+      switch (slipData.code) {
+        case "200401":
+          errorTitle = "บัญชีผู้รับไม่ถูกต้อง";
+          errorDetail = "สลิปนี้โอนไปยังบัญชีที่ไม่ตรงกับระบบ";
+          break;
+        case "200402":
+          errorTitle = "ยอดโอนเงินไม่ตรงเงื่อนไข";
+          errorDetail = "จำนวนเงินที่โอนไม่ตรงตามที่กำหนด";
+          break;
+        case "200403":
+          errorTitle = "วันที่โอนไม่ตรงเงื่อนไข";
+          errorDetail = "วันที่โอนเงินไม่อยู่ในช่วงที่กำหนด";
+          break;
+        case "200404":
+          errorTitle = "ไม่พบข้อมูลสลิปในระบบธนาคาร";
+          errorDetail = "ไม่สามารถตรวจสอบสลิปจากธนาคารได้";
+          break;
+        case "200500":
+          errorTitle = "สลิปเสีย/สลิปปลอม";
+          errorDetail = "สลิปนี้ไม่ถูกต้องหรืออาจเป็นสลิปปลอม";
+          break;
+        case "200501":
+          errorTitle = "สลิปซ้ำ";
+          errorDetail = "สลิปนี้เคยถูกใช้งานแล้ว";
+          break;
+        default:
+          errorTitle = "ไม่สามารถตรวจสอบสลิปได้";
+          errorDetail = slipData.message || 'ระบบไม่สามารถยืนยันสลิปได้';
+      }
+
+      // Send flex message with button to send to admin
       await lineClient.pushMessage(user.lineUserId, {
-        type: "text",
-        text: errorMessage,
+        type: "flex",
+        altText: "❌ การตรวจสอบสลิปล้มเหลว",
+        contents: {
+          type: "bubble",
+          body: {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              {
+                type: "text",
+                text: "❌ การตรวจสอบสลิปล้มเหลว",
+                weight: "bold",
+                size: "lg",
+                color: "#E53E3E",
+                wrap: true,
+              },
+              {
+                type: "separator",
+                margin: "md",
+              },
+              {
+                type: "box",
+                layout: "vertical",
+                margin: "md",
+                spacing: "sm",
+                contents: [
+                  {
+                    type: "text",
+                    text: errorTitle,
+                    weight: "bold",
+                    size: "md",
+                    wrap: true,
+                  },
+                  {
+                    type: "text",
+                    text: errorDetail,
+                    size: "sm",
+                    color: "#666666",
+                    wrap: true,
+                  },
+                ],
+              },
+            ],
+          },
+          footer: {
+            type: "box",
+            layout: "vertical",
+            spacing: "sm",
+            contents: [
+              {
+                type: "button",
+                style: "primary",
+                color: "#06C755",
+                action: {
+                  type: "postback",
+                  label: "ส่งให้แอดมินรอรับยอด",
+                  data: JSON.stringify({
+                    action: "request_manual_approval",
+                    slipPayload: qrPayload,
+                    r2Url,
+                    errorCode: slipData.code,
+                    errorMessage: errorTitle,
+                  }),
+                  displayText: "ส่งสลิปให้แอดมินตรวจสอบ",
+                },
+              },
+              {
+                type: "text",
+                text: "กดปุ่มเพื่อส่งสลิปให้แอดมินตรวจสอบด้วยตนเอง",
+                size: "xs",
+                color: "#888888",
+                align: "center",
+                wrap: true,
+                margin: "sm",
+              },
+            ],
+          },
+        },
       });
       return;
     }
@@ -128,6 +221,167 @@ export async function handleSlipVerification(
       await lineClient.pushMessage(user.lineUserId, {
         type: "text",
         text: "❌ สลิปนี้ถูกใช้ไปแล้ว",
+      });
+      return;
+    }
+
+    // Check if slip is older than 2 hours
+    const now = new Date();
+    const slipTime = new Date(dateTime);
+    const hoursDiff = (now.getTime() - slipTime.getTime()) / (1000 * 60 * 60);
+
+    if (hoursDiff > 2) {
+      // Upload slip to R2 for manual review
+      let r2Url = "";
+      try {
+        r2Url = await uploadSlipImage(imageBuffer, `old_${transRef}`);
+      } catch (error) {
+        console.error("Error uploading to R2:", error);
+      }
+
+      // Send flex message with button to request manual approval
+      await lineClient.pushMessage(user.lineUserId, {
+        type: "flex",
+        altText: "⏰ สลิปเก่าเกิน 2 ชั่วโมง",
+        contents: {
+          type: "bubble",
+          body: {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              {
+                type: "text",
+                text: "⏰ สลิปเก่าเกิน 2 ชั่วโมง",
+                weight: "bold",
+                size: "lg",
+                color: "#FFA500",
+                wrap: true,
+              },
+              {
+                type: "separator",
+                margin: "md",
+              },
+              {
+                type: "box",
+                layout: "vertical",
+                margin: "md",
+                spacing: "sm",
+                contents: [
+                  {
+                    type: "text",
+                    text: "สลิปนี้มีอายุเกิน 2 ชั่วโมง ไม่สามารถอนุมัติอัตโนมัติได้",
+                    size: "sm",
+                    color: "#666666",
+                    wrap: true,
+                  },
+                  {
+                    type: "box",
+                    layout: "baseline",
+                    spacing: "sm",
+                    margin: "md",
+                    contents: [
+                      {
+                        type: "text",
+                        text: "จำนวนเงิน",
+                        color: "#888888",
+                        size: "sm",
+                        flex: 2,
+                      },
+                      {
+                        type: "text",
+                        text: formatCurrency(amount),
+                        wrap: true,
+                        size: "md",
+                        weight: "bold",
+                        color: "#FFA500",
+                        flex: 3,
+                      },
+                    ],
+                  },
+                  {
+                    type: "box",
+                    layout: "baseline",
+                    spacing: "sm",
+                    contents: [
+                      {
+                        type: "text",
+                        text: "เวลาโอน",
+                        color: "#888888",
+                        size: "sm",
+                        flex: 2,
+                      },
+                      {
+                        type: "text",
+                        text: slipTime.toLocaleString('th-TH', {
+                          dateStyle: 'short',
+                          timeStyle: 'short',
+                        }),
+                        wrap: true,
+                        size: "sm",
+                        flex: 3,
+                      },
+                    ],
+                  },
+                  {
+                    type: "box",
+                    layout: "baseline",
+                    spacing: "sm",
+                    contents: [
+                      {
+                        type: "text",
+                        text: "ผ่านมาแล้ว",
+                        color: "#888888",
+                        size: "sm",
+                        flex: 2,
+                      },
+                      {
+                        type: "text",
+                        text: `${Math.floor(hoursDiff)} ชั่วโมง ${Math.floor((hoursDiff % 1) * 60)} นาที`,
+                        wrap: true,
+                        size: "sm",
+                        color: "#E53E3E",
+                        flex: 3,
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+          footer: {
+            type: "box",
+            layout: "vertical",
+            spacing: "sm",
+            contents: [
+              {
+                type: "button",
+                style: "primary",
+                color: "#06C755",
+                action: {
+                  type: "postback",
+                  label: "ส่งให้แอดมินตรวจสอบ",
+                  data: JSON.stringify({
+                    action: "request_manual_approval",
+                    slipPayload: qrPayload,
+                    r2Url,
+                    errorCode: "OLD_SLIP",
+                    errorMessage: "สลิปเก่าเกิน 2 ชั่วโมง",
+                  }),
+                  displayText: "ส่งสลิปให้แอดมินตรวจสอบ",
+                },
+              },
+              {
+                type: "text",
+                text: "กดปุ่มเพื่อส่งสลิปให้แอดมินตรวจสอบด้วยตนเอง",
+                size: "xs",
+                color: "#888888",
+                align: "center",
+                wrap: true,
+                margin: "sm",
+              },
+            ],
+          },
+        },
       });
       return;
     }
@@ -326,9 +580,111 @@ export async function handleSlipVerification(
     });
   } catch (error) {
     console.error("Error verifying slip:", error);
+
+    // Try to download and upload the image even if verification failed
+    let r2Url = "";
+    try {
+      const stream = await lineClient.getMessageContent((message as any).id);
+      const chunks: Buffer[] = [];
+      for await (const chunk of stream) {
+        chunks.push(Buffer.from(chunk));
+      }
+      const imageBuffer = Buffer.concat(chunks);
+      r2Url = await uploadSlipImage(imageBuffer, `error_${Date.now()}`);
+    } catch (uploadError) {
+      console.error("Error uploading slip image:", uploadError);
+    }
+
+    // Send flex message with button to contact admin
     await lineClient.pushMessage(user.lineUserId, {
-      type: "text",
-      text: "❌ เกิดข้อผิดพลาดในการตรวจสอบสลิป กรุณาลองใหม่อีกครั้งหรือติดต่อแอดมิน",
+      type: "flex",
+      altText: "❌ เกิดข้อผิดพลาดในการตรวจสอบสลิป",
+      contents: {
+        type: "bubble",
+        hero: r2Url
+          ? {
+              type: "image",
+              url: r2Url,
+              size: "full",
+              aspectRatio: "3:4",
+              aspectMode: "cover",
+            }
+          : undefined,
+        body: {
+          type: "box",
+          layout: "vertical",
+          contents: [
+            {
+              type: "text",
+              text: "❌ เกิดข้อผิดพลาด",
+              weight: "bold",
+              size: "lg",
+              color: "#E53E3E",
+              wrap: true,
+            },
+            {
+              type: "separator",
+              margin: "md",
+            },
+            {
+              type: "box",
+              layout: "vertical",
+              margin: "md",
+              spacing: "sm",
+              contents: [
+                {
+                  type: "text",
+                  text: "ไม่สามารถตรวจสอบสลิปได้ในขณะนี้",
+                  size: "sm",
+                  color: "#666666",
+                  wrap: true,
+                },
+                {
+                  type: "text",
+                  text: "กรุณาลองใหม่อีกครั้ง หรือกดปุ่มด้านล่างเพื่อส่งให้แอดมินตรวจสอบ",
+                  size: "sm",
+                  color: "#666666",
+                  wrap: true,
+                  margin: "sm",
+                },
+              ],
+            },
+          ],
+        },
+        footer: {
+          type: "box",
+          layout: "vertical",
+          spacing: "sm",
+          contents: [
+            {
+              type: "button",
+              style: "primary",
+              color: "#06C755",
+              action: {
+                type: "postback",
+                label: "ให้แอดมินตรวจสอบอีกครั้ง",
+                data: JSON.stringify({
+                  action: "request_slip_help",
+                  userId: user.id,
+                  displayName: user.displayName,
+                  r2Url,
+                  errorMessage: error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการตรวจสอบ",
+                }),
+                displayText: "ขอให้แอดมินช่วยตรวจสอบสลิป",
+              },
+            },
+            {
+              type: "text",
+              text: "กดปุ่มเพื่อส่งสลิปให้แอดมินตรวจสอบด้วยตนเอง",
+              size: "xs",
+              color: "#888888",
+              align: "center",
+              wrap: true,
+              margin: "sm",
+            },
+          ],
+        },
+      },
     });
   }
 }
