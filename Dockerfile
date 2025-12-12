@@ -65,6 +65,9 @@ RUN apk add --no-cache \
 # Set to production environment
 ENV NODE_ENV=production
 
+# Create public directory
+RUN mkdir -p ./public
+
 # Copy necessary files from builder
 COPY --from=builder /app/next.config.* ./
 COPY --from=builder /app/.next ./.next
@@ -72,7 +75,6 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/drizzle ./drizzle
 COPY --from=builder /app/lib ./lib
-COPY --from=builder /app/public ./public
 
 # Expose port
 EXPOSE 3000

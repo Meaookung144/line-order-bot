@@ -1,0 +1,20 @@
+#!/bin/bash
+
+railway variables --set "DATABASE_URL=postgresql://neondb_owner:npg_9ZwUnv3HyWzR@ep-still-water-a196j4lk-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+railway variables --set "LINE_CHANNEL_ACCESS_TOKEN=XxB8VpH0C1qZWuHqB9JQqapLtneNZgHWM7BgjnQjChZCEDLosxRZSslT3MJO+X8/z1DuOVv2+j2M1rYZBxsDxLchE2tzqG5al9PrWJfiu4r8jkPFq27XX3uS2YdkwxxshquArIXbOQNdXi0YjmcUYgdB04t89/1O/w1cDnyilFU="
+railway variables --set "LINE_CHANNEL_SECRET=6c3b42469237751d8b6883caf6790058"
+railway variables --set "SLIP_APIKEY=8B4rv6ZhYXEquhFlscC1EFDWcn_e3jwj5sFf2BNFJpM="
+railway variables --set "NEXTAUTH_SECRET=$(openssl rand -base64 32)"
+railway variables --set "NEXTAUTH_URL=https://\$RAILWAY_PUBLIC_DOMAIN"
+railway variables --set "R2_ACCOUNT_ID=e4ef7e0bf34a529c9ff5c7a4745ad2ff"
+railway variables --set "R2_ACCESS_KEY_ID=52fd30dd9e0804658d1eb9a9aafe8864"
+railway variables --set "R2_SECRET_ACCESS_KEY=b3a86c98b1306a8ca522f0d5af35ac3cb143d414abfc649de783fba779b77913"
+railway variables --set "R2_BUCKET_NAME=pub-pranakorn"
+railway variables --set "R2_PUBLIC_URL=https://cdn.pranakorn.dev"
+railway variables --set "CREDITMODE=true"
+railway variables --set "EXPECTED_RECEIVER_NAME_TH=บุญยฤทธิ์ สังข์อ่อง"
+railway variables --set "EXPECTED_RECEIVER_NAME_EN=BOONYARIT S"
+railway variables --set "EXPECTED_ACCOUNT_NUMBER=6639546442"
+railway variables --set "SET_ADMIN_GROUP_TOKEN=HelloADMINMeeKraiYuuMai"
+
+echo "✅ All variables set!"
