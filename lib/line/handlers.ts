@@ -11,12 +11,15 @@ import { handleStockCheckCommand } from "./commands/check-stock";
 import { handleReadyCommand } from "./commands/ready";
 import { handleAdminCommand, handleAdminGroupSetup } from "./commands/admin";
 import { handleRequestCreditCommand } from "./commands/request-credit";
+import { handleAdminGiveCommand } from "./commands/admin-give";
+import { handleAdminGiveByLineId } from "./commands/admin-give-line";
 import { db } from "@/lib/db";
 import { users, slips, transactions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { formatCurrency } from "@/lib/utils";
 import { getAdminGroupId } from "@/lib/settings";
 import { getPendingApproval, clearPendingApproval } from "./approval-state";
+import { setAdminTargetUser, getAdminTargetUser, clearAdminTargetUser } from "./admin-context";
 
 export async function handleMessage(event: MessageEvent) {
   const { replyToken, source, message } = event;
@@ -120,11 +123,7 @@ async function handleTextMessage(
         await processSlipApproval(replyToken, pendingApproval.slipId, pendingApproval.userId, amount, user.lineUserId);
         return;
       } else if (!text.startsWith('/')) {
-        // Invalid amount
-        await lineClient.replyMessage(replyToken, {
-          type: "text",
-          text: "❌ กรุณาพิมพ์จำนวนเงินที่ถูกต้อง (ตัวเลขเท่านั้น)\nหรือพิมพ์ /cancel เพื่อยกเลิก",
-        });
+        // Ignore non-command, non-numeric messages in admin group
         return;
       }
     }
@@ -152,17 +151,66 @@ async function handleTextMessage(
       ? text.substring(6).trim()
       : text.substring(6).trim();
     await handleAdminCommand(replyToken, user, args);
+  } else if (text.startsWith("/makemeadmin ")) {
+    const token = text.substring(13).trim();
+    const correctToken = process.env.MAKEME_ADMIN_TOKEN;
+
+    if (!correctToken) {
+      await lineClient.replyMessage(replyToken, {
+        type: "text",
+        text: "❌ ฟีเจอร์นี้ยังไม่ได้ตั้งค่า",
+      });
+      return;
+    }
+
+    if (token === correctToken) {
+      // Check if already admin
+      if (user.isAdmin === true) {
+        await lineClient.replyMessage(replyToken, {
+          type: "text",
+          text: "✅ คุณเป็นแอดมินอยู่แล้ว",
+        });
+        return;
+      }
+
+      // Update user to admin
+      await db
+        .update(users)
+        .set({
+          isAdmin: true,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, user.id));
+
+      await lineClient.replyMessage(replyToken, {
+        type: "text",
+        text: `✅ ยินดีด้วย! คุณเป็นแอดมินแล้ว
+
+คุณสามารถใช้คำสั่งแอดมินได้:
+🎁 /g {user_id} {product_code}
+💵 /credit-approve {user_id} {amount}
+
+พิมพ์ /ah เพื่อดูคำสั่งแอดมินทั้งหมด`,
+      });
+    } else {
+      await lineClient.replyMessage(replyToken, {
+        type: "text",
+        text: "❌ รหัสไม่ถูกต้อง",
+      });
+    }
   } else if (text.startsWith("/request-credit") || text.startsWith("/สก")) {
     const message = text.startsWith("/request-credit")
       ? text.substring(15).trim()
       : text.substring(3).trim();
     await handleRequestCreditCommand(replyToken, user, message);
   } else if (text.startsWith("/credit-approve ")) {
-    // Check if command is from admin group
+    // Check if user is admin or command is from admin group
     const adminGroupId = await getAdminGroupId();
+    const isInAdminGroup = adminGroupId && groupId === adminGroupId;
+    const isUserAdmin = user.isAdmin === true;
 
-    if (!adminGroupId || groupId !== adminGroupId) {
-      return; // Silently ignore if not from admin group
+    if (!isInAdminGroup && !isUserAdmin) {
+      return; // Silently ignore if not admin
     }
 
     const args = text.substring(16).trim().split(" ");
@@ -177,14 +225,97 @@ async function handleTextMessage(
       });
     }
   } else if (text === "/ah" || text === "/รวมคำสั่งadmin") {
-    // Check if command is from admin group
+    // Check if user is admin or command is from admin group
     const adminGroupId = await getAdminGroupId();
+    const isInAdminGroup = adminGroupId && groupId === adminGroupId;
+    const isUserAdmin = user.isAdmin === true;
 
-    if (!adminGroupId || groupId !== adminGroupId) {
-      return; // Silently ignore if not from admin group
+    if (!isInAdminGroup && !isUserAdmin) {
+      return; // Silently ignore if not admin
     }
 
     await handleAdminHelpCommand(replyToken);
+  } else if (text.startsWith("/g ") || text.startsWith("/give ")) {
+    // Check if user is admin or command is from admin group
+    const adminGroupId = await getAdminGroupId();
+    const isInAdminGroup = adminGroupId && groupId === adminGroupId;
+    const isUserAdmin = user.isAdmin === true;
+
+    if (!isInAdminGroup && !isUserAdmin) {
+      return; // Silently ignore if not admin
+    }
+
+    const args = text.substring(6).trim().split(/\s+/);
+    if (args.length >= 2) {
+      const targetUserId = parseInt(args[0]);
+      const productCode = args[1];
+      await handleAdminGiveCommand(replyToken, targetUserId, productCode);
+    } else {
+      await lineClient.replyMessage(replyToken, {
+        type: "text",
+        text: "รูปแบบคำสั่งไม่ถูกต้อง\nใช้: /give {user_id} {product_code}\nตัวอย่าง: /give 1 nf7",
+      });
+    }
+  } else if (text.startsWith("/target ")) {
+    // Admin command to target a customer by LINE User ID
+    if (user.isAdmin !== true) {
+      return; // Silently ignore if not admin
+    }
+
+    const targetLineId = text.substring(8).trim();
+    if (!targetLineId || !targetLineId.startsWith('U')) {
+      await lineClient.replyMessage(replyToken, {
+        type: "text",
+        text: "❌ รูปแบบไม่ถูกต้อง\nใช้: /target {LINE_USER_ID}\nตัวอย่าง: /target U3123f451c952d28b86866578d91ff2a5",
+      });
+      return;
+    }
+
+    // Get target user by LINE User ID
+    const [targetUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.lineUserId, targetLineId))
+      .limit(1);
+
+    if (!targetUser) {
+      await lineClient.replyMessage(replyToken, {
+        type: "text",
+        text: `❌ ไม่พบผู้ใช้ LINE ID: ${targetLineId}`,
+      });
+      return;
+    }
+
+    setAdminTargetUser(user.lineUserId, targetUser.lineUserId, targetUser.displayName);
+
+    await lineClient.replyMessage(replyToken, {
+      type: "text",
+      text: `✅ กำลังช่วยลูกค้า: ${targetUser.displayName}
+LINE ID: ${targetUser.lineUserId}
+
+ตอนนี้คุณสามารถพิมพ์รหัสสินค้า เช่น "nf7" เพื่อส่งสินค้าให้ลูกค้าได้เลย
+
+พิมพ์ /clear เพื่อยกเลิก`,
+    });
+  } else if (text === "/clear" || text === "/ยกเลิกการช่วย") {
+    // Clear admin target
+    if (user.isAdmin !== true) {
+      return;
+    }
+
+    const currentTarget = getAdminTargetUser(user.lineUserId);
+    if (currentTarget) {
+      clearAdminTargetUser(user.lineUserId);
+      await lineClient.replyMessage(replyToken, {
+        type: "text",
+        text: "✅ ยกเลิกการช่วยลูกค้าแล้ว",
+      });
+    } else {
+      await lineClient.replyMessage(replyToken, {
+        type: "text",
+        text: "ไม่มีลูกค้าที่กำลังช่วยอยู่",
+      });
+    }
   } else if (text === "/cancel" || text.toLowerCase() === "ยกเลิก") {
     // Cancel pending approval
     const pendingApproval = getPendingApproval(user.lineUserId);
@@ -203,8 +334,35 @@ async function handleTextMessage(
   } else if (text.startsWith("/") && text.length > 1) {
     // Handle short code purchase (e.g., /nf7, /นฟ7)
     const shortCode = text.substring(1).toLowerCase();
+
+    // Check if admin has a target customer
+    if (user.isAdmin === true) {
+      const targetCustomer = getAdminTargetUser(user.lineUserId);
+      if (targetCustomer) {
+        // Send product to target customer instead (using LINE User ID)
+        await handleAdminGiveByLineId(replyToken, targetCustomer.targetLineUserId, shortCode);
+        return;
+      }
+    }
+
     await handleBuyCommand(replyToken, user, shortCode);
   } else if (text.length > 0 && !text.startsWith("/")) {
+    // Check if this is in admin group - if yes, ignore non-command messages
+    const adminGroupId = await getAdminGroupId();
+    if (adminGroupId && groupId === adminGroupId) {
+      return; // Silently ignore normal messages in admin group
+    }
+
+    // Check if admin has a target customer
+    if (user.isAdmin === true) {
+      const targetCustomer = getAdminTargetUser(user.lineUserId);
+      if (targetCustomer) {
+        // Send product to target customer (using LINE User ID)
+        await handleAdminGiveByLineId(replyToken, targetCustomer.targetLineUserId, text.toLowerCase());
+        return;
+      }
+    }
+
     // Handle short code stock check (e.g., nf7, นฟ7)
     const shortCode = text.toLowerCase();
     await handleStockCheckCommand(replyToken, shortCode);
@@ -306,12 +464,25 @@ async function handleCreditApproveCommand(
 async function handleAdminHelpCommand(replyToken: string) {
   const helpText = `📚 คำสั่งสำหรับแอดมิน:
 
+🎯 /target {LINE_USER_ID}
+   - เลือกลูกค้าที่จะช่วย (ใช้ LINE User ID)
+   - ตัวอย่าง: /target U3123f451c952d28b86866578d91ff2a5
+   - หลังจากนั้นพิมพ์รหัสสินค้า เช่น "nf7"
+   - สินค้าจะส่งไปให้ลูกค้าที่เลือกโดยอัตโนมัติ
+   - พิมพ์ /clear เพื่อยกเลิก
+
 💵 /credit-approve {user_id} {amount}
    - เพิ่มเครดิตให้ผู้ใช้
    - ตัวอย่าง: /credit-approve 1 100
 
-🔧 การตั้งค่ากลุ่มแอดมิน:
-   - พิมพ์ /admin {token} ในกลุ่ม
+🎁 /give {user_id} {product_code}
+   - ส่งสินค้าให้ผู้ใช้และหักเครดิต (ใช้ Database ID)
+   - ตัวอย่าง: /give 1 nf7
+   - บังคับส่งได้แม้เครดิตไม่พอ
+
+🔧 การตั้งค่า:
+   - /admin {token} ในกลุ่ม - ตั้งกลุ่มแอดมิน
+   - /makemeadmin {token} - เป็นแอดมิน
 
 📝 ฟีเจอร์อื่นๆ:
    - ใช้ปุ่มในข้อความเพื่อทำรายการรวดเร็ว

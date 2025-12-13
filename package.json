@@ -11,7 +11,11 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "create-admin": "tsx scripts/create-admin.ts",
-    "generate-token": "tsx scripts/generate-token.ts"
+    "reset-password": "tsx scripts/reset-admin-password.ts",
+    "reset-admin": "tsx scripts/create-admin-direct.ts",
+    "generate-token": "tsx scripts/generate-token.ts",
+    "list-users": "tsx scripts/list-users.ts",
+    "set-admin": "tsx scripts/set-line-admin.ts"
   },
   "dependencies": {
     "next": "^14.2.0",

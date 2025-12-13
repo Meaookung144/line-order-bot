@@ -54,6 +54,7 @@ export const users = pgTable("users", {
   totalSpend: decimal("total_spend", { precision: 10, scale: 2 })
     .default("0")
     .notNull(),
+  isAdmin: boolean("is_admin").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
