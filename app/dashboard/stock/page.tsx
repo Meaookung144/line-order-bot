@@ -53,6 +53,7 @@ export default function StockManagementPage() {
   const [quickPaste, setQuickPaste] = useState("");
   const [bulkInput, setBulkInput] = useState("");
   const [selectedScreens, setSelectedScreens] = useState<string[]>([]);
+  const [duplicateCount, setDuplicateCount] = useState(1);
 
   useEffect(() => {
     loadProducts();
@@ -172,12 +173,32 @@ export default function StockManagementPage() {
         // If screens are selected, create multiple items for each screen
         if (selectedScreens.length > 0) {
           for (const screen of selectedScreens) {
+            // Loop for duplicate count
+            for (let i = 0; i < duplicateCount; i++) {
+              const res = await fetch(`/api/products/${selectedProduct.id}/stock-items`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  itemData: { ...itemData, screen },
+                  autoDuplicate: false,
+                }),
+              });
+
+              if (res.ok) {
+                const result = await res.json();
+                totalCreated += result.created;
+              }
+            }
+          }
+        } else {
+          // No screens selected, just add the item with duplicate count
+          for (let i = 0; i < duplicateCount; i++) {
             const res = await fetch(`/api/products/${selectedProduct.id}/stock-items`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                itemData: { ...itemData, screen },
-                autoDuplicate: false,
+                itemData,
+                autoDuplicate,
               }),
             });
 
@@ -186,27 +207,13 @@ export default function StockManagementPage() {
               totalCreated += result.created;
             }
           }
-        } else {
-          // No screens selected, just add the item as is
-          const res = await fetch(`/api/products/${selectedProduct.id}/stock-items`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              itemData,
-              autoDuplicate,
-            }),
-          });
-
-          if (res.ok) {
-            const result = await res.json();
-            totalCreated += result.created;
-          }
         }
       }
 
       toast.success(`เพิ่มสต็อกสำเร็จ ${totalCreated} รายการจากทั้งหมด ${lines.length} บรรทัด`);
       setBulkInput("");
       setSelectedScreens([]);
+      setDuplicateCount(1);
       await loadStockItems();
       await loadProducts();
     } catch (error) {
@@ -296,6 +303,7 @@ export default function StockManagementPage() {
     setAutoDuplicate(false);
     setBulkInput("");
     setSelectedScreens([]);
+    setDuplicateCount(1);
   };
 
   const handleQuickPaste = () => {
@@ -472,7 +480,7 @@ export default function StockManagementPage() {
                       🎮 เลือก Screen ที่ต้องการรัน (เลือกได้หลายตัว)
                     </label>
                     <div className="flex flex-wrap gap-2">
-                      {[1, 2, 3, 4, 5].map((screen) => (
+                      {[1, 2, 3, 4, 5, 6].map((screen) => (
                         <label
                           key={screen}
                           className={`flex items-center gap-2 px-4 py-2 border-2 rounded-lg cursor-pointer transition-all ${
@@ -500,6 +508,31 @@ export default function StockManagementPage() {
                         </span>
                       )}
                     </p>
+                  </div>
+
+                  {/* Duplicate Count */}
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      🔄 จำนวนครั้งที่ต้องการทำซ้ำแต่ละบัญชี
+                    </label>
+                    <div className="flex items-center gap-4">
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={duplicateCount}
+                        onChange={(e) => setDuplicateCount(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                      <p className="text-sm text-gray-600">
+                        แต่ละบัญชีจะถูกสร้าง <span className="font-semibold text-purple-600">{duplicateCount}</span> ครั้ง
+                        {selectedScreens.length > 0 && (
+                          <span className="text-purple-600">
+                            {" "}× {selectedScreens.length} screens = <span className="font-bold">{duplicateCount * selectedScreens.length}</span> รายการต่อบรรทัด
+                          </span>
+                        )}
+                      </p>
+                    </div>
                   </div>
 
                   <Button
