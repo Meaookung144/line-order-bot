@@ -140,9 +140,9 @@ async function handleTextMessage(
   } else if (text.startsWith("/buy ")) {
     const productId = text.substring(5).trim();
     await handleBuyCommand(replyToken, user, productId);
-  } else if (text === "/product" || text.toLowerCase() === "/สค") {
+  } else if (text === "/product" || text.toLowerCase() === "/สค" || text.toLowerCase() === "สค") {
     await handleProductListCommand(replyToken);
-  } else if (text === "/ready" || text.toLowerCase() === "/พส") {
+  } else if (text === "/ready" || text.toLowerCase() === "/พส" || text.toLowerCase() === "พส") {
     await handleReadyCommand(replyToken);
   } else if (text === "/help" || text.toLowerCase() === "/บอท") {
     await handleHelpCommand(replyToken);
