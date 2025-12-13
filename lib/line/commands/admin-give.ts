@@ -136,13 +136,7 @@ export async function handleAdminGiveCommand(
     });
 
     // Update total spend and check tiers
-    const { newTotalSpend, newMinimumCredit, creditIncreased } =
-      await updateTotalSpendAndCheckTiers(targetUser.id, productPrice);
-
-    let tierMessage = "";
-    if (creditIncreased) {
-      tierMessage = `\n\n🎉 ยินดีด้วย! ยอดซื้อสะสมของคุณถึง ${formatCurrency(newTotalSpend)} แล้ว\n💳 วงเงินเครดิตเพิ่มเป็น: ${formatCurrency(newMinimumCredit)}`;
-    }
+    await updateTotalSpendAndCheckTiers(targetUser.id, productPrice);
 
     // Send product details to user
     const productDetailsMessage = await formatProductMessage(
@@ -151,19 +145,10 @@ export async function handleAdminGiveCommand(
     );
 
     await lineClient.pushMessage(targetUser.lineUserId, [
-//       {
-//         type: "text",
-//         text: `✅ แอดมินส่งสินค้าให้คุณแล้ว!
-
-// สินค้า: ${product.name}
-// ราคา: ${formatCurrency(productPrice)}
-// ยอดเงินเดิม: ${formatCurrency(currentBalance)}
-// ยอดเงินใหม่: ${formatCurrency(newBalance)}${tierMessage}`,
-//       },
-//       {
-//         type: "text",
-//         text: productDetailsMessage,
-//       },
+      {
+        type: "text",
+        text: productDetailsMessage,
+      },
     ]);
 
     // Confirm to admin
