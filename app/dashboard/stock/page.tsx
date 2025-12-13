@@ -63,6 +63,8 @@ export default function StockManagementPage() {
     if (selectedProduct) {
       loadStockItems();
       loadShortCodes();
+      // Set duplicate count to product's retail multiplier
+      setDuplicateCount(selectedProduct.retailMultiplier);
     }
   }, [selectedProduct]);
 
@@ -213,7 +215,8 @@ export default function StockManagementPage() {
       toast.success(`เพิ่มสต็อกสำเร็จ ${totalCreated} รายการจากทั้งหมด ${lines.length} บรรทัด`);
       setBulkInput("");
       setSelectedScreens([]);
-      setDuplicateCount(1);
+      // Reset to product's retail multiplier instead of 1
+      setDuplicateCount(selectedProduct?.retailMultiplier || 1);
       await loadStockItems();
       await loadProducts();
     } catch (error) {
@@ -303,7 +306,8 @@ export default function StockManagementPage() {
     setAutoDuplicate(false);
     setBulkInput("");
     setSelectedScreens([]);
-    setDuplicateCount(1);
+    // Reset to product's retail multiplier instead of 1
+    setDuplicateCount(selectedProduct?.retailMultiplier || 1);
   };
 
   const handleQuickPaste = () => {
@@ -513,7 +517,7 @@ export default function StockManagementPage() {
                   {/* Duplicate Count */}
                   <div className="mt-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      🔄 จำนวนครั้งที่ต้องการทำซ้ำแต่ละบัญชี
+                      🔄 จำนวนครั้งที่ต้องการทำซ้ำแต่ละบัญชี (ค่าเริ่มต้น: ×{selectedProduct.retailMultiplier})
                     </label>
                     <div className="flex items-center gap-4">
                       <input
@@ -522,6 +526,7 @@ export default function StockManagementPage() {
                         max="100"
                         value={duplicateCount}
                         onChange={(e) => setDuplicateCount(Math.max(1, parseInt(e.target.value) || 1))}
+                        placeholder={`ค่าเริ่มต้น: ${selectedProduct.retailMultiplier}`}
                         className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       />
                       <p className="text-sm text-gray-600">
