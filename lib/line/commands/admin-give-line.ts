@@ -151,19 +151,19 @@ export async function handleAdminGiveByLineId(
     );
 
     await lineClient.pushMessage(targetUser.lineUserId, [
-      {
-        type: "text",
-        text: `✅ แอดมินส่งสินค้าให้คุณแล้ว!
+//       {
+//         type: "text",
+//         text: `✅ แอดมินส่งสินค้าให้คุณแล้ว!
 
-สินค้า: ${product.name}
-ราคา: ${formatCurrency(productPrice)}
-ยอดเงินเดิม: ${formatCurrency(currentBalance)}
-ยอดเงินใหม่: ${formatCurrency(newBalance)}${tierMessage}`,
-      },
-      {
-        type: "text",
-        text: productDetailsMessage,
-      },
+// สินค้า: ${product.name}
+// ราคา: ${formatCurrency(productPrice)}
+// ยอดเงินเดิม: ${formatCurrency(currentBalance)}
+// ยอดเงินใหม่: ${formatCurrency(newBalance)}${tierMessage}`,
+//       },
+//       {
+//         type: "text",
+//         text: productDetailsMessage,
+//       },
     ]);
 
     // Confirm to admin

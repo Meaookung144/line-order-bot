@@ -49,17 +49,12 @@ export async function getAvailableStockCount(productId: number): Promise<number>
 }
 
 export async function formatProductMessage(itemData: any, template: string | null): Promise<string> {
+  // Always use template from database
   if (!template) {
-    // Default template if none specified
-    let message = "🎉 คุณได้รับสินค้าแล้ว!\n\n";
-    if (itemData.user) message += `👤 User: ${itemData.user}\n`;
-    if (itemData.pass) message += `🔑 Password: ${itemData.pass}\n`;
-    if (itemData.screen) message += `📺 Screen/Profile: ${itemData.screen}\n`;
-    if (itemData.pin) message += `🔢 PIN: ${itemData.pin}\n`;
-    return message;
+    return "🎉 คุณได้รับสินค้าแล้ว!\n\n(กรุณาตั้งค่า message template ในฐานข้อมูล)";
   }
 
-  // Replace placeholders in template
+  // Replace placeholders in template with actual data
   return template
     .replace(/{user}/g, itemData.user || "")
     .replace(/{pass}/g, itemData.pass || "")
