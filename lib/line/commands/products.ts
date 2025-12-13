@@ -140,6 +140,21 @@ export async function handleProductListCommand(replyToken: string) {
     },
     {
       type: "text",
+      text: "🔑 สอบถามพสไหม : พิมพ์รหัสสินค้า เช่น nf7 (ไม่ต้องมีทับ)",
+      size: "xs",
+      color: "#6B7280",
+      margin: "md",
+      wrap: true,
+    }
+  );
+  
+  bodyContents.push(
+    {
+      type: "separator",
+      margin: "lg",
+    },
+    {
+      type: "text",
       text: "💡 วิธีซื้อ: พิมพ์รหัสสินค้า เช่น /nf7",
       size: "xs",
       color: "#6B7280",

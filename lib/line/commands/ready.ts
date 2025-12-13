@@ -166,7 +166,21 @@ export async function handleReadyCommand(replyToken: string) {
       }
     }
   }
-
+  bodyContents.push(
+    {
+      type: "separator",
+      margin: "lg",
+    },
+    {
+      type: "text",
+      text: "🔑 สอบถามพสไหม : พิมพ์รหัสสินค้า เช่น nf7 (ไม่ต้องมีทับ)",
+      size: "xs",
+      color: "#6B7280",
+      margin: "md",
+      wrap: true,
+    }
+  );
+  
   // Add purchase instruction
   bodyContents.push(
     {
