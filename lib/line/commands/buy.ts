@@ -54,11 +54,11 @@ export async function handleBuyCommand(
     .limit(1);
 
   if (!availableStock) {
-    await lineClient.replyMessage(replyToken, {
-      type: "text",
-      text: "❌ สินค้าหมดสต็อก",
-    });
-    return;
+    // await lineClient.replyMessage(replyToken, {
+    //   type: "text",
+    //   text: "❌ สินค้าหมดสต็อก",
+    // });
+    // return;
   }
 
   const currentBalance = parseFloat(user.creditBalance);
