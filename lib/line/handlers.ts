@@ -245,15 +245,33 @@ async function handleTextMessage(
       return; // Silently ignore if not admin
     }
 
-    const args = text.substring(6).trim().split(/\s+/);
+    const commandPrefix = text.startsWith("/g ") ? 3 : 6;
+    const args = text.substring(commandPrefix).trim().split(/\s+/);
+
     if (args.length >= 2) {
-      const targetUserId = parseInt(args[0]);
+      const userIdentifier = args[0];
       const productCode = args[1];
-      await handleAdminGiveCommand(replyToken, targetUserId, productCode);
+
+      // Check if it's a LINE User ID (starts with U) or database ID (number)
+      if (userIdentifier.startsWith('U')) {
+        // Use LINE User ID
+        await handleAdminGiveByLineId(replyToken, userIdentifier, productCode);
+      } else {
+        // Use database ID
+        const targetUserId = parseInt(userIdentifier);
+        if (!isNaN(targetUserId)) {
+          await handleAdminGiveCommand(replyToken, targetUserId, productCode);
+        } else {
+          await lineClient.replyMessage(replyToken, {
+            type: "text",
+            text: "❌ รูปแบบ User ID ไม่ถูกต้อง",
+          });
+        }
+      }
     } else {
       await lineClient.replyMessage(replyToken, {
         type: "text",
-        text: "รูปแบบคำสั่งไม่ถูกต้อง\nใช้: /give {user_id} {product_code}\nตัวอย่าง: /give 1 nf7",
+        text: "รูปแบบคำสั่งไม่ถูกต้อง\nใช้: /give {user_id} {product_code}\nตัวอย่าง:\n- /give 1 nf7\n- /give U2c2725c9aa0c5e63ec6af163ebf3893d nf7",
       });
     }
   } else if (text.startsWith("/target ")) {
