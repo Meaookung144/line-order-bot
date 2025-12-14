@@ -15,6 +15,7 @@ interface Product {
   messageTemplate: string | null;
   stock: number;
   active: boolean;
+  category: string | null;
 }
 
 interface StockItem {
@@ -35,6 +36,7 @@ interface ProductShortCode {
 
 export default function StockManagementPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [shortCodes, setShortCodes] = useState<ProductShortCode[]>([]);
@@ -329,6 +331,14 @@ export default function StockManagementPage() {
     }
   };
 
+  // Get unique categories
+  const categories = Array.from(new Set(products.map((p) => p.category).filter(Boolean))) as string[];
+
+  // Filter products by selected category
+  const filteredProducts = selectedCategory
+    ? products.filter((p) => p.category === selectedCategory)
+    : products;
+
   const availableItems = stockItems.filter((item) => item.status === "available");
   const soldItems = stockItems.filter((item) => item.status === "sold");
 
@@ -355,32 +365,86 @@ export default function StockManagementPage() {
           <CardTitle>เลือกสินค้า</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {products.map((product) => (
-              <button
-                key={product.id}
-                onClick={() => setSelectedProduct(product)}
-                className={`p-4 border-2 rounded-lg text-left transition-all ${
-                  selectedProduct?.id === product.id
-                    ? "border-blue-500 bg-blue-50"
-                    : "border-gray-200 hover:border-blue-300"
-                }`}
+          <div className="space-y-4">
+            {/* Category Select */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                1️⃣ เลือกหมวดหมู่สินค้า
+              </label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => {
+                  setSelectedCategory(e.target.value);
+                  setSelectedProduct(null); // Reset product when category changes
+                }}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold">{product.name}</h3>
-                  <Package className="w-5 h-5 text-gray-400" />
+                <option value="">-- ทุกหมวดหมู่ --</option>
+                {categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Product Select */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                2️⃣ เลือกสินค้า
+                {selectedCategory && (
+                  <span className="text-blue-600 ml-2">
+                    ({filteredProducts.length} รายการใน {selectedCategory})
+                  </span>
+                )}
+              </label>
+              <select
+                value={selectedProduct?.id || ""}
+                onChange={(e) => {
+                  const product = products.find((p) => p.id === parseInt(e.target.value));
+                  setSelectedProduct(product || null);
+                }}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+                disabled={filteredProducts.length === 0}
+              >
+                <option value="">-- เลือกสินค้า --</option>
+                {filteredProducts.map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.name} - {formatCurrency(parseFloat(product.price))} (สต็อก: {product.stock}, ตัวคูณ: ×{product.retailMultiplier})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Selected Product Info */}
+            {selectedProduct && (
+              <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Package className="w-5 h-5 text-blue-600" />
+                      <h3 className="font-semibold text-lg text-gray-900">{selectedProduct.name}</h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <p className="text-gray-700">
+                        💰 ราคา: <span className="font-medium">{formatCurrency(parseFloat(selectedProduct.price))}</span>
+                      </p>
+                      <p className="text-gray-700">
+                        📦 สต็อก: <span className="font-medium">{selectedProduct.stock} รายการ</span>
+                      </p>
+                      <p className="text-gray-700">
+                        🔄 ตัวคูณ: <span className="font-medium">×{selectedProduct.retailMultiplier}</span>
+                      </p>
+                      {selectedProduct.category && (
+                        <p className="text-gray-700">
+                          🏷️ หมวดหมู่: <span className="font-medium">{selectedProduct.category}</span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <p className="text-sm text-gray-600">
-                  ราคา: {formatCurrency(parseFloat(product.price))}
-                </p>
-                <p className="text-sm text-gray-600">
-                  สต็อก: {product.stock} รายการ
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  ตัวคูณ: ×{product.retailMultiplier}
-                </p>
-              </button>
-            ))}
+              </div>
+            )}
           </div>
 
           {products.length === 0 && (
