@@ -56,6 +56,17 @@ export async function handleProductListCommand(replyToken: string) {
     return acc;
   }, {} as Record<string, typeof productsWithDetails>);
 
+  // Sort products within each category: in-stock first, then out-of-stock
+  Object.keys(grouped).forEach((category) => {
+    grouped[category].sort((a, b) => {
+      // Sort by stock availability first (in stock comes first)
+      if (a.availableStock > 0 && b.availableStock === 0) return -1;
+      if (a.availableStock === 0 && b.availableStock > 0) return 1;
+      // If both have same stock status, sort by name
+      return a.name.localeCompare(b.name, 'th');
+    });
+  });
+
   // Sort categories alphabetically
   const sortedCategories = Object.keys(grouped).sort();
 
@@ -115,19 +126,24 @@ export async function handleProductListCommand(replyToken: string) {
         ],
       });
 
-      // Stock count and short codes
-      const stockInfo = `สต็อก: ${product.availableStock} ชิ้น`;
+      // Stock count and short codes with color based on availability
+      const stockIcon = product.availableStock > 0 ? "✅" : "❌";
+      const stockInfo = `${stockIcon} สต็อก: ${product.availableStock} ชิ้น`;
       const codesInfo = product.shortCodes.length > 0
         ? ` | รหัส: ${product.shortCodes.map(sc => `/${sc.code}`).join(" ")}`
         : "";
+
+      // Green if in stock, red if out of stock
+      const stockColor = product.availableStock > 0 ? "#10B981" : "#EF4444";
 
       bodyContents.push({
         type: "text",
         text: stockInfo + codesInfo,
         size: "xs",
-        color: "#6B7280",
+        color: stockColor,
         margin: "xs",
         wrap: true,
+        weight: product.availableStock > 0 ? "bold" : "regular",
       });
     }
   }
